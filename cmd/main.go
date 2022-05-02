@@ -22,6 +22,7 @@ type GameData struct {
 }
 
 // nextstep :下一步走哪里？
+/*
 func nextStep(gameData GameData, side Piece) (int, int) {
 	x, y := 0, 0
 	width := len(gameData.data)
@@ -45,7 +46,7 @@ func nextStep(gameData GameData, side Piece) (int, int) {
 	fmt.Println("weight:", maxWeight)
 	return x, y
 }
-
+*/
 type lineWeight map[int]int
 type DirectionLineWeight []lineWeight
 
@@ -60,7 +61,7 @@ func Print(data DirectionLineWeight) {
 }
 
 // computeWeight :计算所有方向的权重
-func computeWeight(data GameData, side Piece, x int, y int) int {
+func computeWeight(data [][]Point, side Piece, x int, y int) int {
 	otherWeights := make([]lineWeight, 4)
 	otherWeights[0] = make(map[int]int)
 	otherWeights[1] = make(map[int]int)
@@ -74,7 +75,7 @@ func computeWeight(data GameData, side Piece, x int, y int) int {
 	weights[3] = make(map[int]int)
 
 	weight, otherWeight := 0, 0
-	data0 := data.data
+	data0 := data
 
 	printMatrix(data0)
 
@@ -132,7 +133,7 @@ func computeWeight(data GameData, side Piece, x int, y int) int {
 	}
 
 	// 旋转90度计算
-	data1 := rorateMatrix(data.data)
+	data1 := rorateMatrix(data)
 	printMatrix(data1)
 
 	for i := 0; i < len(data1); i++ {
@@ -206,7 +207,7 @@ func computeWeight(data GameData, side Piece, x int, y int) int {
 }
 
 // 旋转矩阵
-func rorateMatrix(matrix [][]int) [][]int {
+func rorateMatrix(matrix [][]Point) [][]Point {
 	for i, j := 0, len(matrix)-1; i < j; i, j = i+1, j-1 {
 		matrix[i], matrix[j] = matrix[j], matrix[i]
 	}
@@ -220,8 +221,8 @@ func rorateMatrix(matrix [][]int) [][]int {
 	return matrix
 }
 
-func reverse(x []int) []int {
-	var r []int
+func reverse(x []Point) []Point {
+	var r []Point
 	for i := len(x) - 1; i >= 0; i-- {
 		r = append(r, x[i])
 	}
@@ -229,11 +230,11 @@ func reverse(x []int) []int {
 	return r
 }
 
-func rotate45Matrix(matrix [][]int) [][]int {
-	var m [][]int
+func rotate45Matrix(matrix [][]Point) [][]Point {
+	var m [][]Point
 
 	for line := 0; line < 2*len(matrix)-1; line++ {
-		var r []int
+		var r []Point
 		for i := 0; i < len(matrix); i++ {
 			for j := 0; j < len(matrix[i]); j++ {
 				if i+j == line {
@@ -256,7 +257,7 @@ type pieceTimeWeight map[int]int
 type pieceWeight map[int]pieceTimeWeight
 
 // computeRowWeight :计算单行权重
-func computeRowWeight(row *[]int) (int, int) {
+func computeRowWeight(row *[]Point) (int, int) {
 	p := make(map[int]pieceTimeWeight)
 	p[0] = make(map[int]int)
 	p[1] = make(map[int]int)
@@ -270,7 +271,7 @@ func computeRowWeight(row *[]int) (int, int) {
 	data := *row
 
 	for i := 0; i < len(data); i++ {
-		c = data[i]
+		c = data[i].value
 		if c != lastC {
 			if lastC > 0 {
 				_, ok := p[lastC][times]
@@ -315,7 +316,7 @@ func computeRowWeight(row *[]int) (int, int) {
 	return blackWeight, whiteWeight
 }
 
-var _gameData = GameData{
+var _gameData0 = GameData{
 	data: [][]int{
 		{0, 0, 0, 0, 1, 1, 2, 0, 1, 2, 0},
 		{1, 2, 1, 2, 0, 1, 1, 2, 2, 2, 1},
@@ -330,11 +331,30 @@ var _gameData = GameData{
 		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 	}}
 
-func printMatrix(data [][]int) {
+type Point struct {
+	x     int
+	y     int
+	value int
+}
+
+var _gameData [][]Point
+
+func initData() {
+	for i := 0; i < len(_gameData0.data); i++ {
+		var r []Point
+		for j := 0; j < len(_gameData0.data[i]); j++ {
+			p := Point{x: i, y: j, value: _gameData0.data[i][j]}
+			r = append(r, p)
+		}
+		_gameData = append(_gameData, r)
+	}
+}
+
+func printMatrix(data [][]Point) {
 	fmt.Println("matrix begin")
 	for i := 0; i < len(data); i++ {
 		for j := 0; j < len(data[i]); j++ {
-			fmt.Printf("%d ", data[i][j])
+			fmt.Printf("%d ", data[i][j].value)
 		}
 		fmt.Println()
 	}
@@ -344,6 +364,8 @@ func printMatrix(data [][]int) {
 
 func main() {
 	fmt.Println("Gomoku Game Simple algorithm, code by shrek 2022")
+
+	initData()
 
 	//row := _gameData.data[0]
 	//
