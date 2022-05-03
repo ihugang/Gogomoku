@@ -80,11 +80,13 @@ func JudgeWin(data []int) (Piece, []Point) {
 		rows = append(rows, row)
 	}
 
+	log.Printf("lines : %2d", rowsLength)
 	for i := 0; i < rowsLength; i++ {
 		fmt.Println("line ", i)
 		row := rows[i]
 		printRow(row)
 		win, side, p := judgeRowWin(row)
+		log.Printf("line %2d : %s = %t %d", i, printRow2String(row), win, side)
 		if win {
 			return side, p
 		}
@@ -118,6 +120,15 @@ func printRow(data []Point) {
 	}
 	fmt.Printf("\n\r")
 	fmt.Println("row end")
+}
+
+func printRow2String(data []Point) string {
+	var s string = ""
+	for i := 0; i < len(data); i++ {
+		s = s + fmt.Sprintf("%2d ", data[i].value)
+	}
+	//s = s + fmt.Sprintf("\n\r")
+	return s
 }
 
 // compute : 计算
@@ -171,8 +182,9 @@ func compute(data [][]Point, side Piece) (int, int) {
 		fmt.Println("Compute line ", i)
 		row := rows[i]
 		printRow(row)
-		log.Printf("line %d : %#v ", i, row)
+		//log.Printf("line %d : %#v ", i, row)
 		b, w := computeRowWeight(row)
+		log.Printf("line %2d : %s = %8d %8d", i, printRow2String(row), b, w)
 		if side == Black {
 			if otherWeight < w {
 				otherWeight = w
@@ -198,7 +210,7 @@ func compute(data [][]Point, side Piece) (int, int) {
 	}
 
 	fmt.Println("weight:", weight, "otherWeight:", otherWeight)
-
+	log.Printf("weight: %8d  otherWeight: %8d\n\r", weight, otherWeight)
 	sort.SliceStable(otherWeights, func(i, j int) bool {
 		return otherWeights[i].Weight > otherWeights[j].Weight
 	})
@@ -245,6 +257,8 @@ func compute(data [][]Point, side Piece) (int, int) {
 					}
 				}
 			}
+
+			log.Printf("计算 %2d : weight %8d", k, newSelfWeight)
 
 			if lastMinIndex > -1 {
 				point := rows[firstRow.RowNo][lastMinIndex]
@@ -561,7 +575,9 @@ func judgeRowWin(row []Point) (bool, Piece, []Point) {
 			}
 			times = 1
 		} else {
-			times++
+			if c > 0 {
+				times++
+			}
 		}
 		lastC = c
 	}
@@ -802,6 +818,7 @@ func main() {
 
 	// POST
 	r.POST("/api/GomokuWin", func(c *gin.Context) {
+		log.Println("/api/GomokuWin")
 		json := GOMOKU_GAME_DATA{}
 		c.BindJSON(&json)
 		log.Printf("%v", &json)
