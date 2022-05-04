@@ -263,7 +263,7 @@ func compute(data [][]Point, side Piece) (int, int) {
 		}
 	}
 
-	if otherWeight >= 140000 {
+	if otherWeight >= 100000 {
 		for k := 0; k < len(otherWeights); k++ {
 			firstRow := otherWeights[k]
 			fmt.Println(firstRow)
@@ -753,10 +753,24 @@ func computeRowWeight(row []Point) (int, int) {
 
 	match, err = regexp.MatchString(`011010|010110`, s)
 	if err == nil && match {
-		b = 120000
+		b = 130000
 	}
 
 	match, err = regexp.MatchString(`022020|020220`, s)
+	if err == nil && match {
+		w = 130000
+	}
+
+	if b > 0 || w > 0 {
+		return b, w
+	}
+
+	match, err = regexp.MatchString(`00111|11100|11010|01101`, s)
+	if err == nil && match {
+		b = 120000
+	}
+
+	match, err = regexp.MatchString(`00222|22200|22020|02202`, s)
 	if err == nil && match {
 		w = 120000
 	}
@@ -765,12 +779,12 @@ func computeRowWeight(row []Point) (int, int) {
 		return b, w
 	}
 
-	match, err = regexp.MatchString(`00111|11100`, s)
+	match, err = regexp.MatchString(`01100|00110|01010`, s)
 	if err == nil && match {
 		b = 110000
 	}
 
-	match, err = regexp.MatchString(`00222|22200`, s)
+	match, err = regexp.MatchString(`02200|00220|02020`, s)
 	if err == nil && match {
 		w = 110000
 	}
@@ -778,6 +792,20 @@ func computeRowWeight(row []Point) (int, int) {
 	if b > 0 || w > 0 {
 		return b, w
 	}
+
+	//match, err = regexp.MatchString(`11010|01101`, s)
+	//if err == nil && match {
+	//	b = 120000
+	//}
+	//
+	//match, err = regexp.MatchString(`22020|02202`, s)
+	//if err == nil && match {
+	//	w = 100000
+	//}
+	//
+	//if b > 0 || w > 0 {
+	//	return b, w
+	//}
 
 	//prevPiece := -1
 	//prevTimes := 0
@@ -831,8 +859,6 @@ func computeRowWeight(row []Point) (int, int) {
 	blackWeight := 0
 	data := row
 
-	lastNotSaveC := -1
-
 	// 0, 0, 0, 0, 1, 1, 2, 0, 1, 2, 0
 	// 1, 2, 1, 2, 0, 1, 1, 2, 2, 2, 1
 
@@ -844,8 +870,6 @@ func computeRowWeight(row []Point) (int, int) {
 			// 当前是空格
 			if c == 0 && spaces == 0 {
 				spaces = 1
-
-				lastNotSaveC = lastC
 				lastC = c
 				continue
 			}
@@ -856,7 +880,7 @@ func computeRowWeight(row []Point) (int, int) {
 					p[lastC][times] = 0
 				}
 
-				if c > 0 && (spaces == 1) && (c == lastNotSaveC) {
+				if c > 0 && spaces == 1 {
 					times = 2
 					lastC = c
 					continue
