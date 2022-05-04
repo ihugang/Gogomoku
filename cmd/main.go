@@ -5,9 +5,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"log"
 	"math"
+	"math/rand"
 	"net/http"
 	"os"
+	"regexp"
 	"sort"
+	"time"
 )
 
 type Piece int
@@ -29,7 +32,7 @@ func nextStep(data []int, side Piece) int {
 	for i := 0; i < width; i++ {
 		data2[i] = make([]Point, width)
 		for j := 0; j < width; j++ {
-			p := Point{x: i, y: j, value: data[i*width+j]}
+			p := Point{X: i, Y: j, Value: data[i*width+j]}
 			data2[i][j] = p
 		}
 	}
@@ -46,7 +49,7 @@ func JudgeWin(data []int) (Piece, []Point) {
 	for i := 0; i < width; i++ {
 		data0[i] = make([]Point, width)
 		for j := 0; j < width; j++ {
-			p := Point{x: i, y: j, value: data[i*width+j]}
+			p := Point{X: i, Y: j, Value: data[i*width+j]}
 			data0[i][j] = p
 		}
 	}
@@ -80,13 +83,13 @@ func JudgeWin(data []int) (Piece, []Point) {
 		rows = append(rows, row)
 	}
 
-	log.Printf("lines : %2d", rowsLength)
+	//log.Printf("lines : %2d", rowsLength)
 	for i := 0; i < rowsLength; i++ {
 		fmt.Println("line ", i)
 		row := rows[i]
 		printRow(row)
 		win, side, p := judgeRowWin(row)
-		log.Printf("line %2d : %s = %t %d", i, printRow2String(row), win, side)
+		//log.Printf("line %2d : %s = %t %d", i, printRow2String(row), win, side)
 		if win {
 			return side, p
 		}
@@ -116,7 +119,7 @@ func Print(data DirectionLineWeight) {
 func printRow(data []Point) {
 	fmt.Println("row begin")
 	for i := 0; i < len(data); i++ {
-		fmt.Printf("%2d ", data[i].value)
+		fmt.Printf("%2d ", data[i].Value)
 	}
 	fmt.Printf("\n\r")
 	fmt.Println("row end")
@@ -125,7 +128,7 @@ func printRow(data []Point) {
 func printRow2String(data []Point) string {
 	var s string = ""
 	for i := 0; i < len(data); i++ {
-		s = s + fmt.Sprintf("%2d ", data[i].value)
+		s = s + fmt.Sprintf("%2d ", data[i].Value)
 	}
 	//s = s + fmt.Sprintf("\n\r")
 	return s
@@ -217,9 +220,52 @@ func compute(data [][]Point, side Piece) (int, int) {
 
 	fmt.Println("开始计算...")
 	// 开始计算
-	if otherWeight >= 1000 {
+	if weight >= 180000 {
+		// 自己可能赢
+		sort.SliceStable(weights, func(i, j int) bool {
+			return weights[i].Weight > weights[j].Weight
+		})
+
+		for k := 0; k < len(weights); k++ {
+			firstRow := weights[k]
+			log.Printf("weight line %2d : %2d %s\n\r", k, firstRow.RowNo, printRow2String(rows[firstRow.RowNo]))
+			lastMaxIndex := -1
+			newSelfWeight := 0
+			for i := 0; i < len(rows[firstRow.RowNo]); i++ {
+				crow := make([]Point, len(rows[firstRow.RowNo]))
+				copy(crow, rows[firstRow.RowNo])
+				if crow[i].Value == 0 {
+					crow[i].Value = int(side)
+					printRow(crow)
+
+					b, w := computeRowWeight(crow)
+					if side == Black {
+
+						if newSelfWeight < b {
+							newSelfWeight = b
+							lastMaxIndex = i
+						}
+					} else {
+						if newSelfWeight < w {
+							newSelfWeight = w
+							lastMaxIndex = i
+						}
+					}
+				}
+			}
+
+			if lastMaxIndex > -1 {
+				point := rows[firstRow.RowNo][lastMaxIndex]
+				log.Printf("自己可能赢 New Step:%2d %2d\n\r", point.X, point.Y)
+				fmt.Println("自己可能赢 New Step:", point.X, point.Y)
+				return point.X, point.Y
+			}
+		}
+	}
+
+	if otherWeight >= 140000 {
 		for k := 0; k < len(otherWeights); k++ {
-			firstRow := otherWeights[0]
+			firstRow := otherWeights[k]
 			fmt.Println(firstRow)
 			printRow(rows[firstRow.RowNo])
 
@@ -231,10 +277,10 @@ func compute(data [][]Point, side Piece) (int, int) {
 			for i := 0; i < len(rows[firstRow.RowNo]); i++ {
 				crow := make([]Point, len(rows[firstRow.RowNo]))
 				copy(crow, rows[firstRow.RowNo])
-				if crow[i].value == 0 {
-					crow[i].value = int(side)
+				if crow[i].Value == 0 {
+					crow[i].Value = int(side)
 					printRow(crow)
-
+					log.Printf("计算中 %s\n\r", printRow2String(crow))
 					b, w := computeRowWeight(crow)
 					if side == Black {
 						if newWeight > w {
@@ -262,14 +308,15 @@ func compute(data [][]Point, side Piece) (int, int) {
 
 			if lastMinIndex > -1 {
 				point := rows[firstRow.RowNo][lastMinIndex]
-				fmt.Println("影响对家 New Step:", point.x, point.y)
-				return point.x, point.y
+				fmt.Println("影响对家 New Step:", point.X, point.Y)
+				log.Printf("影响对家 New Step: %2d %2d %5d", point.X, point.Y, newSelfWeight)
+				return point.X, point.Y
 			} else {
 				// 对对方没有影响
 				if lastMaxIndex > -1 {
 					point := rows[firstRow.RowNo][lastMinIndex]
-					fmt.Println("利于自己 New Step:", point.x, point.y)
-					return point.x, point.y
+					fmt.Println("利于自己 New Step:", point.X, point.Y)
+					return point.X, point.Y
 				}
 			}
 		}
@@ -280,6 +327,8 @@ func compute(data [][]Point, side Piece) (int, int) {
 			return weights[i].Weight > weights[j].Weight
 		})
 
+		var waitPoints []Point
+
 		for k := 0; k < len(weights); k++ {
 			firstRow := weights[k]
 			lastMaxIndex := -1
@@ -287,13 +336,12 @@ func compute(data [][]Point, side Piece) (int, int) {
 			for i := 0; i < len(rows[firstRow.RowNo]); i++ {
 				crow := make([]Point, len(rows[firstRow.RowNo]))
 				copy(crow, rows[firstRow.RowNo])
-				if crow[i].value == 0 {
-					crow[i].value = int(side)
+				if crow[i].Value == 0 {
+					crow[i].Value = int(side)
 					printRow(crow)
 
 					b, w := computeRowWeight(crow)
 					if side == Black {
-
 						if newSelfWeight < b {
 							newSelfWeight = b
 							lastMaxIndex = i
@@ -309,26 +357,47 @@ func compute(data [][]Point, side Piece) (int, int) {
 
 			if lastMaxIndex > -1 {
 				point := rows[firstRow.RowNo][lastMaxIndex]
-				fmt.Println("没有威胁时 利于自己 New Step:", point.x, point.y)
-				return point.x, point.y
+				waitPoints = append(waitPoints, point)
+				fmt.Println("没有威胁时 利于自己 New Step:", point.X, point.Y)
+				log.Printf("没有威胁时 利于自己 New Step: %2d %2d ：%05d\n\r", point.X, point.Y, newSelfWeight)
+				return point.X, point.Y
 			}
 		}
 
+		rand.Seed(time.Now().UnixNano())
+		min := 1
+		max := len(waitPoints) - 1
+
+		randomSkip := rand.Intn(max-min+1) + min
+		p := waitPoints[randomSkip]
+		log.Printf("没有威胁 随机分配：%2d %2d", p.X, p.Y)
+		return p.X, p.Y
+
 	}
+
+	var waitPoints []Point
 
 	// 最优选择如果没有时
 	// 随机选择一个位置
 	for k := 1; k < matrixLength; k++ {
 		for j := 0; j < len(rows[k]); j++ {
 			point := rows[k][j]
-			if point.value == 0 {
+			if point.Value == 0 {
 				fmt.Println("随机选择")
-				return point.x, point.y
+				return point.X, point.Y
+				waitPoints = append(waitPoints, point)
 			}
 		}
 	}
 
-	return -1, -1
+	rand.Seed(time.Now().UnixNano())
+	min := 1
+	max := len(waitPoints) - 1
+
+	randomSkip := rand.Intn(max-min+1) + min
+	p := waitPoints[randomSkip]
+	log.Printf("随机分配：%2d %2d", p.X, p.Y)
+	return p.X, p.Y
 }
 
 // computeWeight :计算所有方向的权重
@@ -564,13 +633,14 @@ func judgeRowWin(row []Point) (bool, Piece, []Point) {
 	p := make([]Point, 5)
 
 	for i := 0; i < len(row); i++ {
-		c = row[i].value
+		c = row[i].Value
 
 		if lastC != c {
 			if times >= 5 {
 				for j := 0; j < 5; j++ {
 					p[j] = row[(i-5)+j]
 				}
+				copy(p, row[i-5:i])
 				return true, Piece(lastC), p
 			}
 			times = 1
@@ -589,7 +659,7 @@ func printRows(rows [][]Point) {
 	for i := 0; i < len(rows); i++ {
 		fmt.Printf("Line %2d : ", i)
 		for j := 0; j < len(rows[i]); j++ {
-			fmt.Printf(" %d ", rows[i][j].value)
+			fmt.Printf(" %d ", rows[i][j].Value)
 		}
 		fmt.Printf("\n\r")
 	}
@@ -598,6 +668,154 @@ func printRows(rows [][]Point) {
 
 // computeRowWeight :计算单行权重
 func computeRowWeight(row []Point) (int, int) {
+
+	var s string
+	b := 0
+	w := 0
+
+	// first, Is there any space?
+	zeroNumber := 0
+	for _, v := range row {
+		if v.Value == 0 {
+			s = s + "0"
+			zeroNumber++
+		} else {
+			if v.Value == 1 {
+				s = s + "1"
+			} else {
+				s = s + "2"
+			}
+		}
+	}
+	log.Println("row = ", s)
+	fmt.Println("string:", s)
+
+	if zeroNumber == 0 {
+		return 0, 0
+	}
+
+	match, err := regexp.MatchString(`11111`, s)
+	if err == nil && match {
+		b = 200000
+	}
+
+	match, err = regexp.MatchString(`22222`, s)
+	if err == nil && match {
+		w = 200000
+	}
+
+	if b > 0 || w > 0 {
+		return b, w
+	}
+
+	match, err = regexp.MatchString(`011110`, s)
+	if err == nil && match {
+		b = 180000
+	}
+
+	match, err = regexp.MatchString(`022220`, s)
+	if err == nil && match {
+		w = 180000
+	}
+
+	if b > 0 || w > 0 {
+		return b, w
+	}
+
+	// second, Is there any win chance just one step ?
+	match, err = regexp.MatchString(`01111|10111|11011|11101|11110`, s)
+	if err == nil && match {
+		b = 160000
+	}
+
+	match, err = regexp.MatchString(`02222|20222|22022|22202|22220`, s)
+	if err == nil && match {
+		w = 160000
+	}
+
+	if b > 0 || w > 0 {
+		return b, w
+	}
+
+	match, err = regexp.MatchString(`01110`, s)
+	if err == nil && match {
+		b = 140000
+	}
+
+	match, err = regexp.MatchString(`02220`, s)
+	if err == nil && match {
+		w = 140000
+	}
+
+	if b > 0 || w > 0 {
+		return b, w
+	}
+
+	match, err = regexp.MatchString(`011010|010110`, s)
+	if err == nil && match {
+		b = 120000
+	}
+
+	match, err = regexp.MatchString(`022020|020220`, s)
+	if err == nil && match {
+		w = 120000
+	}
+
+	if b > 0 || w > 0 {
+		return b, w
+	}
+
+	match, err = regexp.MatchString(`00111|11100`, s)
+	if err == nil && match {
+		b = 110000
+	}
+
+	match, err = regexp.MatchString(`00222|22200`, s)
+	if err == nil && match {
+		w = 110000
+	}
+
+	if b > 0 || w > 0 {
+		return b, w
+	}
+
+	//prevPiece := -1
+	//prevTimes := 0
+	//surPicce := -1
+	//surTimes := 0
+	//lastPiece := -1
+	//currentPiece := -1
+	//space := 0
+	//for i := 0; i < len(row); i++ {
+	//	currentPiece = row[i].Value
+	//
+	//	if currentPiece == 0 {
+	//		if space == 0 {
+	//			space = 1
+	//			prevPiece = lastPiece
+	//			continue
+	//		} else {
+	//			prevPiece = -1
+	//			space++
+	//			continue
+	//		}
+	//	} else {
+	//		// not zero
+	//		if
+	//	}
+	//
+	//	last = currentPiece
+	//
+	//	if current != last {
+	//		if current = 0 {
+	//
+	//		}
+	//	} else {
+	//
+	//	}
+	//
+	//}
+
 	p := make(map[int]pieceTimeWeight)
 	p[0] = make(map[int]int)
 	p[1] = make(map[int]int)
@@ -613,43 +831,44 @@ func computeRowWeight(row []Point) (int, int) {
 	blackWeight := 0
 	data := row
 
+	lastNotSaveC := -1
+
 	// 0, 0, 0, 0, 1, 1, 2, 0, 1, 2, 0
 	// 1, 2, 1, 2, 0, 1, 1, 2, 2, 2, 1
 
 	for i := 0; i < len(data); i++ {
-		c = data[i].value
+		c = data[i].Value
 
 		if c != lastC {
+			times = 1
+			// 当前是空格
+			if c == 0 && spaces == 0 {
+				spaces = 1
+
+				lastNotSaveC = lastC
+				lastC = c
+				continue
+			}
+
 			if lastC > 0 {
 				_, ok := p[lastC][times]
 				if !ok {
 					p[lastC][times] = 0
 				}
 
-				if (spaces > 0) || (c == 0) {
-					if lastCc == lastC || lastCc == -1 {
-						times += lastTimes
-						lastTimes = 0
-						spaces = 0
-					}
-					if c == 0 && times > 1 {
-						times++
-					}
-					fmt.Println("i:", i, "space: ", spaces, "times:", times, "c:", lastC, "next:", c)
-					p[lastC][times]++
-					spaces = 0
-					lastCc = lastC
-					lastTimes = times
-				} else {
-					times = 0
-					lastTimes = 0
+				if c > 0 && (spaces == 1) && (c == lastNotSaveC) {
+					times = 2
+					lastC = c
+					continue
 				}
+				log.Printf("i : %2d spaces: %2d ,times: %2d , lastC : %d  current: %d", i, spaces, times, lastC, c)
+				fmt.Println("i:", i, "space: ", spaces, "times:", times, "c:", lastC, "next:", c)
+				p[lastC][times]++
+				spaces = 0
+				times = 1
+				lastCc = lastC
 			}
-			times = 1
-			if c == 0 {
-				spaces = 1
-			}
-		} else {
+		} else { // 和上一个字符一样
 			times++
 			if c == 0 {
 				spaces++
@@ -659,7 +878,7 @@ func computeRowWeight(row []Point) (int, int) {
 		lastC = c
 	}
 
-	if lastC > 0 && spaces > 0 {
+	if lastC > 0 && spaces == 1 {
 		_, ok := p[lastC][times]
 		if !ok {
 			p[lastC][times] = 0
@@ -715,9 +934,9 @@ type GOMOKU_GAME_JUDGE_DATA struct {
 }
 
 type Point struct {
-	x     int
-	y     int
-	value int
+	X     int `json:"x"`
+	Y     int `json:"y"`
+	Value int `json:"value"`
 }
 
 var _gameData [][]Point
@@ -726,7 +945,7 @@ func initData() {
 	for i := 0; i < len(_gameData0.data); i++ {
 		var r []Point
 		for j := 0; j < len(_gameData0.data[i]); j++ {
-			p := Point{x: i, y: j, value: _gameData0.data[i][j]}
+			p := Point{X: i, Y: j, Value: _gameData0.data[i][j]}
 			r = append(r, p)
 		}
 		_gameData = append(_gameData, r)
@@ -737,7 +956,7 @@ func printMatrix(data [][]Point) {
 	fmt.Println("matrix begin")
 	for i := 0; i < len(data); i++ {
 		for j := 0; j < len(data[i]); j++ {
-			fmt.Printf("(%d,%d) %d ", data[i][j].x, data[i][j].y, data[i][j].value)
+			fmt.Printf("(%d,%d) %d ", data[i][j].X, data[i][j].Y, data[i][j].Value)
 		}
 		fmt.Println()
 	}
@@ -826,9 +1045,9 @@ func main() {
 		x, data := JudgeWin(json.Data)
 
 		c.JSON(http.StatusOK, gin.H{
-			"success": true,
-			"win":     x,
-			"data":    data,
+			"success":  true,
+			"win":      x,
+			"winChess": data,
 		})
 	})
 	r.Run()
